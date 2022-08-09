@@ -147,10 +147,14 @@ def mean_average_precision_for_boxes(ann, pred, iou_threshold=0.5, exclude_not_i
         scores = []
         num_annotations = 0.0
 
+        # from time import perf_counter
+        # timesum = 0
         for i in range(len(ann_unique)):
+
             detections = []
             annotations = []
             id = ann_unique[i]
+            # ts = perf_counter()
             if id in all_detections:
                 if label in all_detections[id]:
                     detections = all_detections[id][label]
@@ -165,8 +169,15 @@ def mean_average_precision_for_boxes(ann, pred, iou_threshold=0.5, exclude_not_i
             detected_annotations = []
 
             annotations = np.array(annotations, dtype=np.float64)
-            for d in detections:
-                scores.append(d[4])
+
+            detections = np.array(detections)
+            idx = np.argsort(-detections[:,4])
+            detections = detections[idx]
+            _scores = detections[:,4]
+            # print(_scores)
+            scores.append(_scores)
+
+            for d in detections:    
 
                 if len(annotations) == 0:
                     false_positives.append(1)
@@ -177,13 +188,20 @@ def mean_average_precision_for_boxes(ann, pred, iou_threshold=0.5, exclude_not_i
                 assigned_annotation = np.argmax(overlaps, axis=1)
                 max_overlap = overlaps[0, assigned_annotation]
 
+                # print('bbox',d[:4],'conf',d[4],'iou', max_overlap)
+
                 if max_overlap >= iou_threshold and assigned_annotation not in detected_annotations:
+                    # print('TP')
                     false_positives.append(0)
                     true_positives.append(1)
                     detected_annotations.append(assigned_annotation)
                 else:
+                    # print('FP')
                     false_positives.append(1)
                     true_positives.append(0)
+            
+            # print(id, (perf_counter()-ts)*1000)
+            # timesum +=  (perf_counter()-ts)
 
         if num_annotations == 0:
             average_precisions[label] = 0, 0
@@ -191,23 +209,37 @@ def mean_average_precision_for_boxes(ann, pred, iou_threshold=0.5, exclude_not_i
 
         false_positives = np.array(false_positives)
         true_positives = np.array(true_positives)
-        scores = np.array(scores)
+        scores = np.hstack(scores).flatten()
 
         # sort by score
         indices = np.argsort(-scores)
+        # scores = scores[indices]
         false_positives = false_positives[indices]
         true_positives = true_positives[indices]
+
+        # print('scores',scores)
+        # print('false_positives', false_positives)
+        # print('true_positives',  true_positives)
 
         # compute false positives and true positives
         false_positives = np.cumsum(false_positives)
         true_positives = np.cumsum(true_positives)
 
+        # print('true_positives_cum',    true_positives)
+        # print('false_positives_cum', false_positives)
+
         # compute recall and precision
-        recall = true_positives / num_annotations
-        precision = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
+        # recallv = true_positives / num_annotations
+        recallv = true_positives / num_annotations
+        precisionv = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
+
+        # print('recall',recallv)
+        # print('precision',precisionv)
+
+        # print(timesum)
 
         # compute average precision
-        average_precision = _compute_ap(recall, precision)
+        average_precision = _compute_ap(recallv, precisionv)
         average_precisions[label] = average_precision, num_annotations
         if verbose:
             s1 = "{:30s} | {:.6f} | {:7d}".format(label, average_precision, int(num_annotations))
