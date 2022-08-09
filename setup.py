@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='map-boxes',
-    version='1.0.1',
+    version='1.0.6',
     description='Function to calculate mAP for set of detected boxes and annotated boxes.',
     author='Roman Solovyev, modified by Jeremi Wojcicki (ETA Compute)',
     author_email='jeremi@etacompute.com',
